@@ -1,4 +1,5 @@
-import { createGateway } from '@ai-sdk/gateway';
+import { deepseek } from '@ai-sdk/deepseek';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -23,12 +24,38 @@ import {
   getCommentPrompt,
   getEditPrompt,
   getGeneratePrompt,
+  getLatexifyPrompt,
 } from './prompt';
 
+const localProvider = createOpenAICompatible({
+  name: 'lmstudio',
+  baseURL: 'http://127.0.0.1:1234/v1',
+  apiKey: 'not-needed',
+});
+
+function getModel(useLocal: boolean, modelId: string): LanguageModel {
+  if (useLocal) return localProvider('gemma-4-12b-it-qat');
+  return deepseek(modelId);
+}
+
+const DEEPSEEK_PROVIDER_OPTS = {
+  deepseek: { thinking: { type: 'disabled' as const } },
+};
+
+const DEFAULT_MODEL = 'deepseek-v4-flash';
+
 export async function POST(req: NextRequest) {
-  const { apiKey: key, ctx, messages: messagesRaw, model } = await req.json();
+  const {
+    apiKey: key,
+    ctx,
+    messages: messagesRaw,
+    model,
+    provider: providerName,
+  } = await req.json();
 
   const { children, selection, toolName: toolNameParam } = ctx;
+
+  const useLocal = providerName === 'local';
 
   const editor = createSlateEditor({
     plugins: BaseEditorKit,
@@ -36,41 +63,50 @@ export async function POST(req: NextRequest) {
     value: children,
   });
 
-  const apiKey = key || process.env.AI_GATEWAY_API_KEY;
+  const apiKey = key || process.env.DEEPSEEK_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'Missing AI Gateway API key.' },
+      { error: 'Missing DeepSeek API key.' },
       { status: 401 }
     );
   }
 
   const isSelecting = editor.api.isExpanded();
 
-  const gatewayProvider = createGateway({
-    apiKey,
-  });
+  // Sensible defaults for generation
+  const _GEN_OPTS = {
+    maxOutputTokens: 8000,
+    temperature: 0.7,
+  };
 
   try {
     const stream = createUIMessageStream<ChatMessage>({
       execute: async ({ writer }) => {
         let toolName = toolNameParam;
 
-        if (!toolName) {
+        if (toolName) {
+          // Tool preset by client — notify frontend of the tool choice
+          writer.write({
+            data: toolName as any,
+            type: 'data-toolName',
+          });
+        } else {
           const prompt = getChooseToolPrompt({
             isSelecting,
             messages: messagesRaw,
           });
 
           const enumOptions = isSelecting
-            ? ['generate', 'edit', 'comment']
+            ? ['generate', 'edit', 'comment', 'latexify']
             : ['generate', 'comment'];
-          const modelId = model || 'google/gemini-2.5-flash';
+          const modelId = model || DEFAULT_MODEL;
 
           const { output: AIToolName } = await generateText({
-            model: gatewayProvider(modelId),
+            model: getModel(useLocal, modelId),
             output: Output.choice({ options: enumOptions }),
             prompt,
+            providerOptions: useLocal ? undefined : DEEPSEEK_PROVIDER_OPTS,
           });
 
           writer.write({
@@ -82,22 +118,25 @@ export async function POST(req: NextRequest) {
         }
 
         const stream = streamText({
+          maxOutputTokens: 8000,
+          temperature: 0.7,
           experimental_transform: markdownJoinerTransform(),
-          model: gatewayProvider(model || 'openai/gpt-4o-mini'),
+          model: getModel(useLocal, model || DEFAULT_MODEL),
           // Not used
           prompt: '',
           tools: {
             comment: getCommentTool(editor, {
               messagesRaw,
-              model: gatewayProvider(model || 'google/gemini-2.5-flash'),
+              model: getModel(useLocal, model || DEFAULT_MODEL),
               writer,
             }),
             table: getTableTool(editor, {
               messagesRaw,
-              model: gatewayProvider(model || 'google/gemini-2.5-flash'),
+              model: getModel(useLocal, model || DEFAULT_MODEL),
               writer,
             }),
           },
+          providerOptions: useLocal ? undefined : DEEPSEEK_PROVIDER_OPTS,
           prepareStep: async (step) => {
             if (toolName === 'comment') {
               return {
@@ -123,14 +162,31 @@ export async function POST(req: NextRequest) {
               return {
                 ...step,
                 activeTools: [],
-                model:
-                  editType === 'selection'
-                    ? //The selection task is more challenging, so we chose to use Gemini 2.5 Flash.
-                      gatewayProvider(model || 'google/gemini-2.5-flash')
-                    : gatewayProvider(model || 'openai/gpt-4o-mini'),
+                model: getModel(useLocal, model || DEFAULT_MODEL),
                 messages: [
                   {
                     content: editPrompt,
+                    role: 'user',
+                  },
+                ],
+              };
+            }
+
+            if (toolName === 'latexify') {
+              console.error('[Latexify] prepareStep called');
+              const latexifyPrompt = getLatexifyPrompt(editor, messagesRaw);
+              console.error(
+                '[Latexify] prompt generated, length:',
+                latexifyPrompt.length
+              );
+
+              return {
+                ...step,
+                activeTools: [],
+                model: getModel(useLocal, model || DEFAULT_MODEL),
+                messages: [
+                  {
+                    content: latexifyPrompt,
                     role: 'user',
                   },
                 ],
@@ -152,7 +208,7 @@ export async function POST(req: NextRequest) {
                     role: 'user',
                   },
                 ],
-                model: gatewayProvider(model || 'openai/gpt-4o-mini'),
+                model: getModel(useLocal, model || DEFAULT_MODEL),
               };
             }
           },

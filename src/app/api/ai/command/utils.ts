@@ -153,7 +153,7 @@ export const buildStructuredPrompt = ({
 };
 
 export function getTextFromMessage(message: UIMessage): string {
-  return message.parts
+  return (message.parts ?? [])
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
     .join('');

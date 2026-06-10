@@ -23,7 +23,6 @@ import { ExportToolbarButton } from './export-toolbar-button';
 import { FontColorToolbarButton } from './font-color-toolbar-button';
 import { FontSizeToolbarButton } from './font-size-toolbar-button';
 import { RedoToolbarButton, UndoToolbarButton } from './history-toolbar-button';
-import { ImportToolbarButton } from './import-toolbar-button';
 import {
   IndentToolbarButton,
   OutdentToolbarButton,
@@ -39,7 +38,10 @@ import {
 import { MarkToolbarButton } from './mark-toolbar-button';
 import { MediaToolbarButton } from './media-toolbar-button';
 import { ModeToolbarButton } from './mode-toolbar-button';
+import { ModelSelector } from './model-selector';
 import { MoreToolbarButton } from './more-toolbar-button';
+import { OpenToolbarButton } from './open-toolbar-button';
+import { SaveToolbarButton } from './save-toolbar-button';
 import { TableToolbarButton } from './table-toolbar-button';
 import { ToggleToolbarButton } from './toggle-toolbar-button';
 import { ToolbarGroup } from './toolbar';
@@ -64,11 +66,11 @@ export function FixedToolbarButtons() {
           </ToolbarGroup>
 
           <ToolbarGroup>
+            <OpenToolbarButton />
+            <SaveToolbarButton />
             <ExportToolbarButton>
               <ArrowUpToLineIcon />
             </ExportToolbarButton>
-
-            <ImportToolbarButton />
           </ToolbarGroup>
 
           <ToolbarGroup>
@@ -160,6 +162,7 @@ export function FixedToolbarButtons() {
       </ToolbarGroup>
 
       <ToolbarGroup>
+        <ModelSelector />
         <ModeToolbarButton />
       </ToolbarGroup>
     </div>

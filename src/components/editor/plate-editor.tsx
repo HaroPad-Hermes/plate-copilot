@@ -1,26 +1,198 @@
 'use client';
 
+import { serializeMd } from '@platejs/markdown';
+import type { Value } from 'platejs';
 import { normalizeStaticValue } from 'platejs';
 import { Plate, usePlateEditor } from 'platejs/react';
+import * as React from 'react';
 
 import { EditorKit } from '@/components/editor/editor-kit';
+import { getFileHandle } from '@/components/editor/file-handles';
 import { SettingsDialog } from '@/components/editor/settings-dialog';
+import { type Tab, useTabContext } from '@/components/editor/tab-context';
+import { useTabSync } from '@/components/editor/tabbed-editor';
+import { useAutoSave } from '@/components/editor/use-auto-save';
 import { Editor, EditorContainer } from '@/components/ui/editor';
 
+async function saveTab(
+  editor: any,
+  tab: Tab,
+  markClean: (id: string) => void,
+  tabId: string
+) {
+  const markdown = serializeMd(editor, { value: editor.children });
+  const handle = getFileHandle(tabId);
+
+  if (handle) {
+    try {
+      const writable = await handle.createWritable();
+      await writable.write(markdown);
+      await writable.close();
+      markClean(tabId);
+      return;
+    } catch (err) {
+      console.error('Save error:', err);
+    }
+  }
+
+  // Try API write if we have a filePath
+  if (tab.filePath) {
+    try {
+      const res = await fetch('/api/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'write',
+          path: tab.filePath,
+          content: markdown,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        markClean(tabId);
+        return;
+      }
+      throw new Error(data.error);
+    } catch (err) {
+      console.error('API save error:', err);
+    }
+  }
+  const filename = tab.filePath || tab.name;
+  const blob = new Blob([markdown], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename.endsWith('.md') ? filename : `${filename}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+  markClean(tabId);
+}
+
 export function PlateEditor() {
-  const editor = usePlateEditor({
-    plugins: EditorKit,
-    value,
+  const { activeTab, markDirty, markClean, updateTabValue, activeTabId } =
+    useTabContext();
+  const onChangeRef = React.useRef(false);
+  const saveKeyRef = React.useRef<{
+    tab: typeof activeTab;
+    markClean: typeof markClean;
+    tabId: string | null;
+  }>({
+    tab: null,
+    markClean,
+    tabId: null,
   });
 
-  return (
-    <Plate editor={editor}>
-      <EditorContainer>
-        <Editor variant="demo" />
-      </EditorContainer>
+  const editor = usePlateEditor({
+    plugins: EditorKit,
+    value: activeTab?.value ?? value,
+  });
 
-      <SettingsDialog />
-    </Plate>
+  // Swap content when tabs change
+  useTabSync(editor, onChangeRef);
+
+  // Autosave dirty tabs after 3s of inactivity
+  useAutoSave(editor);
+
+  // Keep save refs current
+  saveKeyRef.current = { tab: activeTab, markClean, tabId: activeTabId };
+
+  // Ctrl+S to save
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        const { tab, tabId } = saveKeyRef.current;
+        if (tab && tabId) saveTab(editor, tab, markClean, tabId);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [editor, markClean]);
+
+  // Accept suggestion on Tab with proper spacing
+  const editorRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = editorRef.current?.querySelector('[data-slate-editor]');
+    if (!el) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const suggestionText = editor.getOption(
+          { key: 'copilot' } as any,
+          'suggestionText'
+        ) as string | null;
+        if (suggestionText) {
+          // Ghost never starts with space — spacing baked into prompt by getPrompt
+          const text = suggestionText;
+          if (!text) return;
+
+          // Determine if cursor needs a space before the accepted word
+          let prefix = '';
+          if (editor.selection && editor.selection.anchor.offset > 0) {
+            const nodeEntry = editor.api.node(editor.selection.anchor);
+            if (nodeEntry) {
+              const [node] = nodeEntry;
+              if (node && 'text' in node) {
+                const charBefore = (node.text as string)[
+                  editor.selection.anchor.offset - 1
+                ];
+                if (charBefore && charBefore !== ' ') {
+                  // Char before is non-space — check if at word boundary
+                  const textBefore = (node.text as string).slice(
+                    0,
+                    editor.selection.anchor.offset
+                  );
+                  const lastWord =
+                    textBefore.split(/\s/).pop() || '';
+                  const lastWordChar = lastWord.slice(-1);
+                  // Same heuristic as getPrompt
+                  if (
+                    /[.,:;!?]/.test(lastWordChar) ||
+                    lastWord.length >= 4
+                  ) {
+                    prefix = ' ';
+                  }
+                  // else: short incomplete word → no space
+                }
+              }
+            }
+          }
+
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          const spaceIdx = text.indexOf(' ');
+          const word =
+            spaceIdx === -1 ? text : text.slice(0, spaceIdx);
+          editor.tf.insertText(prefix + word + ' ');
+        }
+      }
+    };
+    el.addEventListener('keydown', handler, true); // capture phase
+    return () => el.removeEventListener('keydown', handler, true);
+  }, [editor]);
+
+  return (
+    <div ref={editorRef}>
+      <Plate
+        editor={editor}
+        onChange={({ value: editorValue }) => {
+          if (!activeTabId) return;
+          if (onChangeRef.current) {
+            onChangeRef.current = false;
+            return;
+          }
+          markDirty(activeTabId);
+          updateTabValue(activeTabId, editorValue as Value);
+        }}
+      >
+        <EditorContainer>
+          <Editor variant="demo" />
+        </EditorContainer>
+
+        <SettingsDialog />
+      </Plate>
+    </div>
   );
 }
 

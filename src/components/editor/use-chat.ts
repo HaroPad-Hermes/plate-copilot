@@ -19,8 +19,9 @@ import { type PlateEditor, useEditorRef, usePluginOption } from 'platejs/react';
 import * as React from 'react';
 import { aiChatPlugin } from '@/components/editor/plugins/ai-kit';
 import { discussionPlugin } from './plugins/discussion-kit';
+import { getProvider } from './provider-store';
 
-export type ToolName = 'comment' | 'edit' | 'generate';
+export type ToolName = 'comment' | 'edit' | 'generate' | 'latexify';
 
 export type TComment = {
   comment: {
@@ -69,6 +70,7 @@ function createChatTransport({
       const body = {
         ...initBody,
         ...bodyOptions,
+        provider: getProvider(),
       };
 
       const res = await fetch(input, {
@@ -184,7 +186,7 @@ export const useChat = () => {
     transport,
     onData(data) {
       if (data.type === 'data-toolName') {
-        editor.setOption(AIChatPlugin, 'toolName', data.data as ToolName);
+        editor.setOption(AIChatPlugin, 'toolName', data.data as any);
       }
 
       if (data.type === 'data-table' && data.data) {

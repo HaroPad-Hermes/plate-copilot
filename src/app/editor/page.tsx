@@ -1,13 +1,10 @@
-import { Toaster } from 'sonner';
+import { EditorPage } from '@/components/editor/editor-page';
 
-import { PlateEditor } from '@/components/editor/plate-editor';
-
-export default function Page() {
-  return (
-    <div className="h-screen w-full">
-      <PlateEditor />
-
-      <Toaster />
-    </div>
-  );
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ file?: string }>;
+}) {
+  const params = await searchParams;
+  return <EditorPage initialFile={params.file} />;
 }

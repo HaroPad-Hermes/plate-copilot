@@ -113,8 +113,43 @@ export function getChooseToolPrompt({
     `,
   ];
 
+  const latexifyExamples = [
+    dedent`
+      <instruction>
+      Convert math to LaTeX
+      </instruction>
+
+      <output>
+      latexify
+      </output>
+    `,
+    dedent`
+      <instruction>
+      Format this equation in LaTeX
+      </instruction>
+
+      <output>
+      latexify
+      </output>
+    `,
+    dedent`
+      <instruction>
+      LaTeXify this math
+      </instruction>
+
+      <output>
+      latexify
+      </output>
+    `,
+  ];
+
   const examples = isSelecting
-    ? [...generateExamples, ...editExamples, ...commentExamples]
+    ? [
+        ...generateExamples,
+        ...editExamples,
+        ...commentExamples,
+        ...latexifyExamples,
+      ]
     : [...generateExamples, ...commentExamples];
 
   const editRule = `

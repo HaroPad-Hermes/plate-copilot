@@ -376,6 +376,18 @@ Start writing a new paragraph AFTER <Document> ONLY ONE SENTENCE`
       });
     },
   },
+  latexify: {
+    icon: <PenLine />,
+    label: 'Format math as LaTeX',
+    value: 'latexify',
+    onSelect: ({ editor, input }) => {
+      void editor.getApi(AIChatPlugin).aiChat.submit(input, {
+        prompt:
+          'Convert all math expressions in the selected text to proper LaTeX notation. Wrap inline math in $...$ and display math in $$...$$. Use proper LaTeX commands: \\frac, \\sqrt, \\sum, \\int, \\alpha, \\beta, etc.',
+        toolName: 'edit' as any,
+      });
+    },
+  },
   generateMarkdownSample: {
     icon: <BookOpenCheck />,
     label: 'Generate Markdown sample',
@@ -543,6 +555,7 @@ const menuStateItems: Record<
         aiChatItems.makeLonger,
         aiChatItems.makeShorter,
         aiChatItems.fixSpelling,
+        aiChatItems.latexify,
         aiChatItems.simplifyLanguage,
       ],
     },

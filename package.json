@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/deepseek": "^2.0.35",
     "@ai-sdk/gateway": "^3.0.124",
+    "@ai-sdk/openai-compatible": "^2.0.48",
     "@ai-sdk/react": "3",
     "@ariakit/react": "^0.4.29",
     "@emoji-mart/data": "1.2.1",
@@ -106,6 +108,7 @@
     "@types/node": "^25.9.1",
     "@types/react": "19.2.16",
     "@types/react-dom": "19.2.3",
+    "@types/wicg-file-system-access": "^2023.10.7",
     "@typescript-eslint/parser": "^8.60.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^10.4.1",
