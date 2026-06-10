@@ -74,6 +74,16 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
 
   const openTab = React.useCallback((opts: OpenTabOptions) => {
     const id = nanoid();
+
+    // Restore saved AI context from localStorage
+    let aiContext: string | undefined;
+    if (opts.filePath) {
+      const saved = localStorage.getItem(
+        `plate-ai-context:${opts.filePath}`
+      );
+      if (saved) aiContext = saved;
+    }
+
     setTabs((prev) => [
       ...prev,
       {
@@ -82,6 +92,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
         value: opts.value,
         dirty: false,
         filePath: opts.filePath,
+        aiContext,
       },
     ]);
     setActiveTabId(id);
@@ -140,7 +151,19 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   const setAiContext = React.useCallback(
     (id: string, aiContext: string) => {
       setTabs((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, aiContext } : t))
+        prev.map((t) => {
+          if (t.id !== id) return t;
+          // Persist to localStorage keyed by filePath
+          if (t.filePath) {
+            const key = `plate-ai-context:${t.filePath}`;
+            if (aiContext) {
+              localStorage.setItem(key, aiContext);
+            } else {
+              localStorage.removeItem(key);
+            }
+          }
+          return { ...t, aiContext };
+        })
       );
     },
     []
