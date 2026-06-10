@@ -121,13 +121,13 @@ export function PlateEditor() {
           'suggestionText'
         ) as string | null;
         if (suggestionText) {
-          // Ghost never starts with space — spacing baked into prompt by getPrompt
-          const text = suggestionText;
-          if (!text) return;
-
-          // Determine if cursor needs a space before the accepted word
+          // Two-prompt flow: ghost has correct spacing from API
+          // Ghost may start with space (complete word, no trailing space) or not
+          let text = suggestionText;
           let prefix = '';
-          if (editor.selection && editor.selection.anchor.offset > 0) {
+
+          if (text.startsWith(' ') && editor.selection) {
+            // Model signaled space needed — check cursor to avoid double space
             const nodeEntry = editor.api.node(editor.selection.anchor);
             if (nodeEntry) {
               const [node] = nodeEntry;
@@ -135,24 +135,20 @@ export function PlateEditor() {
                 const charBefore = (node.text as string)[
                   editor.selection.anchor.offset - 1
                 ];
-                if (charBefore && charBefore !== ' ') {
-                  // Char before is non-space — check if at word boundary
-                  const textBefore = (node.text as string).slice(
-                    0,
-                    editor.selection.anchor.offset
-                  );
-                  const lastWord = textBefore.split(/\s/).pop() || '';
-                  const lastWordChar = lastWord.slice(-1);
-                  // Same heuristic as getPrompt
-                  if (/[.,:;!?]/.test(lastWordChar) || lastWord.length >= 4) {
-                    prefix = ' ';
-                  }
-                  // else: short incomplete word → no space
+                if (charBefore === ' ') {
+                  text = text.replace(/^\s+/, ''); // already spaced — strip
+                } else {
+                  text = text.replace(/^\s+/, '');
+                  prefix = ' '; // cursor needs the space
                 }
               }
             }
+          } else if (text.startsWith(' ')) {
+            // Cursor at position 0 — strip leading space
+            text = text.replace(/^\s+/, '');
           }
 
+          if (!text) return;
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
@@ -161,7 +157,6 @@ export function PlateEditor() {
           const word = spaceIdx === -1 ? text : text.slice(0, spaceIdx);
 
           // Pre-shift ghost to account for prefix space before insertion
-          // This keeps the ghost aligned with what we're about to insert
           if (prefix) {
             const copilotApi = editor.getApi({ key: 'copilot' } as any) as any;
             copilotApi?.copilot?.setBlockSuggestion({

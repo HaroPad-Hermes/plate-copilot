@@ -67,19 +67,14 @@ export const CopilotKit = [
 
         let promptText = currentText;
 
-        // Bake trailing space into prompt based on cursor state
+        // Keep existing trailing space or add after punctuation; otherwise send raw
         const lastChar = currentText.slice(-1);
         if (lastChar === ' ') {
           // Already spaced — keep as-is
         } else if (/[.,:;!?]/.test(lastChar)) {
-          promptText += ' '; // Add space after punctuation
-        } else if (/[a-zA-Z]/.test(lastChar)) {
-          const lastWord = currentText.split(/\s/).pop() || '';
-          if (lastWord.length >= 4) {
-            promptText += ' '; // Likely complete word → trailing space
-          }
-          // else: short word → likely incomplete → no space (AI completes naturally)
+          promptText += ' '; // Add space after punctuation → route sees trailing space
         }
+        // else: no trailing space → raw text (route handles two-prompt)
 
         return `Continue writing. ${promptText}`;
       },
