@@ -3,6 +3,7 @@
 import { CopilotPlugin } from '@platejs/ai/react';
 import { stripMarkdown } from '@platejs/markdown';
 import { NodeApi, PathApi, TextApi } from 'platejs';
+import { getAiContext } from '@/components/editor/ai-context-store';
 import { getProvider } from '@/components/editor/provider-store';
 
 import { GhostText } from '@/components/ui/ghost-text';
@@ -19,7 +20,16 @@ export const CopilotKit = [
           get provider() {
             return getProvider();
           },
-          system: `You are an AI autocomplete engine. Output only the continuation text. No explanations, no meta-text. Never repeat words already in the text. If stuck, return "0".`,
+          get system() {
+            const ctx = getAiContext();
+            let base = `You are an AI autocomplete engine. Output only the continuation text. No explanations, no meta-text. Never repeat words already in the text. If stuck, return "0".`;
+            if (ctx) {
+              base += `
+
+DOCUMENT CONTEXT: ${ctx}`;
+            }
+            return base;
+          },
         },
         onError: (error) => {
           console.error('Copilot API error:', error);

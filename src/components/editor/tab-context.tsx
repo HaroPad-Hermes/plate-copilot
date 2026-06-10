@@ -4,12 +4,15 @@ import type { Value } from 'platejs';
 import { nanoid } from 'platejs';
 import * as React from 'react';
 
+import { setAiContextStore } from './ai-context-store';
+
 export type Tab = {
+  aiContext?: string;
   dirty: boolean;
   filePath?: string;
   id: string;
   isSaving?: boolean;
-  lastSavedAt?: number; // Date.now() timestamp of last successful save
+  lastSavedAt?: number;
   name: string;
   value: Value;
 };
@@ -28,6 +31,7 @@ type TabContextValue = {
   markDirty: (id: string) => void;
   openTab: (opts: OpenTabOptions) => string;
   renameTab: (id: string, name: string) => void;
+  setAiContext: (id: string, aiContext: string) => void;
   setSaving: (id: string, saving: boolean) => void;
   switchTab: (id: string) => void;
   tabs: Tab[];
@@ -62,6 +66,11 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     () => tabs.find((t) => t.id === activeTabId) ?? null,
     [tabs, activeTabId]
   );
+
+  // Sync active tab's AI context to the module-level store
+  React.useEffect(() => {
+    setAiContextStore(activeTab?.aiContext ?? '');
+  }, [activeTab?.aiContext]);
 
   const openTab = React.useCallback((opts: OpenTabOptions) => {
     const id = nanoid();
@@ -128,6 +137,15 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const setAiContext = React.useCallback(
+    (id: string, aiContext: string) => {
+      setTabs((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, aiContext } : t))
+      );
+    },
+    []
+  );
+
   return (
     <TabContext.Provider
       value={{
@@ -141,6 +159,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
         markDirty,
         markClean,
         updateTabValue,
+        setAiContext,
         setSaving,
       }}
     >

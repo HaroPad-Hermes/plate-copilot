@@ -40,6 +40,7 @@ import { MediaToolbarButton } from './media-toolbar-button';
 import { ModeToolbarButton } from './mode-toolbar-button';
 import { ModelSelector } from './model-selector';
 import { MoreToolbarButton } from './more-toolbar-button';
+import { AiContextButton } from './ai-context-button';
 import { OpenToolbarButton } from './open-toolbar-button';
 import { SaveToolbarButton } from './save-toolbar-button';
 import { TableToolbarButton } from './table-toolbar-button';
@@ -68,6 +69,7 @@ export function FixedToolbarButtons() {
           <ToolbarGroup>
             <OpenToolbarButton />
             <SaveToolbarButton />
+            <AiContextButton />
             <ExportToolbarButton>
               <ArrowUpToLineIcon />
             </ExportToolbarButton>
