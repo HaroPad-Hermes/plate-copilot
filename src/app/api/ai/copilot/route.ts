@@ -16,7 +16,7 @@ async function callAI(
   prompt: string,
   tokens: number,
   signal: AbortSignal,
-  useLocal: boolean,
+  useLocal: boolean
 ) {
   return generateText({
     abortSignal: signal,
@@ -65,12 +65,19 @@ export async function POST(req: NextRequest) {
       : deepseek(model);
 
     const prefix = 'Continue writing. ';
-    const text = prompt.startsWith(prefix) ? prompt.slice(prefix.length) : prompt;
+    const text = prompt.startsWith(prefix)
+      ? prompt.slice(prefix.length)
+      : prompt;
 
     // Case 1: Trailing space or empty → single call
     if (text.endsWith(' ') || text.length === 0) {
       const result = await callAI(
-        modelInstance, system, prompt, 40, req.signal, useLocal
+        modelInstance,
+        system,
+        prompt,
+        40,
+        req.signal,
+        useLocal
       );
       return NextResponse.json({ text: result.text });
     }
@@ -79,9 +86,15 @@ export async function POST(req: NextRequest) {
     const lastWord = text.split(/\s/).pop() || text;
     const checkPrompt = `Text: ${text}\nIs the last word complete?`;
     const checkResult = await callAI(
-      modelInstance, WORD_CHECK_SYSTEM, checkPrompt, 5, req.signal, useLocal
+      modelInstance,
+      WORD_CHECK_SYSTEM,
+      checkPrompt,
+      5,
+      req.signal,
+      useLocal
     );
-    const checkResponse = checkResult.text.trim()
+    const checkResponse = checkResult.text
+      .trim()
       .replace(/^Option\s*[AB]:\s*/i, ''); // strip "Option B:" if model uses it
     const isFinished =
       checkResponse.toLowerCase().replace(/[^a-z]/g, '') === 'finished';
@@ -89,7 +102,12 @@ export async function POST(req: NextRequest) {
     if (isFinished) {
       const continuedPrompt = `Continue writing. ${text} `;
       const sentenceResult = await callAI(
-        modelInstance, system, continuedPrompt, 40, req.signal, useLocal
+        modelInstance,
+        system,
+        continuedPrompt,
+        40,
+        req.signal,
+        useLocal
       );
       return NextResponse.json({ text: ' ' + sentenceResult.text });
     }
@@ -98,7 +116,12 @@ export async function POST(req: NextRequest) {
     const completedText = text + wordCompletion;
     const continuedPrompt = `Continue writing. ${completedText} `;
     const sentenceResult = await callAI(
-      modelInstance, system, continuedPrompt, 40, req.signal, useLocal
+      modelInstance,
+      system,
+      continuedPrompt,
+      40,
+      req.signal,
+      useLocal
     );
 
     const combined = wordCompletion + ' ' + sentenceResult.text;

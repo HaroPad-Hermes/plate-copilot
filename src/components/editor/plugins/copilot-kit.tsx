@@ -19,7 +19,7 @@ export const CopilotKit = [
           get provider() {
             return getProvider();
           },
-          system: `You are an AI autocomplete engine. Output only the continuation text. No explanations, no meta-text. Never repeat words already in the text. Complete partial words when possible. If stuck, return "0".`,
+          system: `You are an AI autocomplete engine. Output only the continuation text. No explanations, no meta-text. Never repeat words already in the text. If stuck, return "0".`,
         },
         onError: (error) => {
           console.error('Copilot API error:', error);
@@ -65,7 +65,7 @@ export const CopilotKit = [
           currentText = NodeApi.string(block);
         }
 
-        let promptText = currentText;
+        const promptText = currentText;
 
         // Only preserve existing trailing space; otherwise send raw
         const lastChar = currentText.slice(-1);

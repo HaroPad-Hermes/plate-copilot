@@ -109,7 +109,7 @@ export function PlateEditor() {
     return () => window.removeEventListener('keydown', handler);
   }, [editor, markClean]);
 
-  // Accept suggestion on Tab with proper spacing
+  // Accept suggestion on Tab — manual insert + ghost advance
   const editorRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     const el = editorRef.current?.querySelector('[data-slate-editor]');
@@ -121,13 +121,14 @@ export function PlateEditor() {
           'suggestionText'
         ) as string | null;
         if (suggestionText) {
-          // Two-prompt flow: ghost has correct spacing from API
-          // Ghost may start with space (complete word, no trailing space) or not
-          let text = suggestionText;
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
           let prefix = '';
 
-          if (text.startsWith(' ') && editor.selection) {
-            // Model signaled space needed — check cursor to avoid double space
+          // Ghost starts with space → check cursor to decide
+          if (suggestionText.startsWith(' ') && editor.selection) {
             const nodeEntry = editor.api.node(editor.selection.anchor);
             if (nodeEntry) {
               const [node] = nodeEntry;
@@ -135,40 +136,40 @@ export function PlateEditor() {
                 const charBefore = (node.text as string)[
                   editor.selection.anchor.offset - 1
                 ];
-                if (charBefore === ' ') {
-                  text = text.replace(/^\s+/, ''); // already spaced — strip
-                } else {
-                  text = text.replace(/^\s+/, '');
-                  prefix = ' '; // cursor needs the space
+                if (charBefore !== ' ') {
+                  prefix = ' '; // cursor needs the separator
                 }
               }
             }
-          } else if (text.startsWith(' ')) {
-            // Cursor at position 0 — strip leading space
-            text = text.replace(/^\s+/, '');
           }
 
-          if (!text) return;
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
+          // Strip leading whitespace to find the next word
+          const stripped = suggestionText.trimStart();
+          if (!stripped) return;
 
-          const spaceIdx = text.indexOf(' ');
-          const word = spaceIdx === -1 ? text : text.slice(0, spaceIdx);
+          const spaceIdx = stripped.indexOf(' ');
+          const word =
+            spaceIdx === -1 ? stripped : stripped.slice(0, spaceIdx);
 
-          // Pre-shift ghost to account for prefix space before insertion
-          if (prefix) {
-            const copilotApi = editor.getApi({ key: 'copilot' } as any) as any;
-            copilotApi?.copilot?.setBlockSuggestion({
-              text: ' ' + suggestionText,
-            });
-          }
+          // Compute remaining ghost after consuming this word
+          const wordIdx = suggestionText.indexOf(word);
+          const remaining =
+            wordIdx >= 0
+              ? suggestionText.slice(wordIdx + word.length).trimStart()
+              : '';
 
-          editor.tf.insertText(prefix + word + ' ');
+          // Insert word, bypassing CopilotPlugin's ghost tracking
+          (editor.tf as any).withoutSaving?.(() => {
+            editor.tf.insertText(prefix + word + ' ');
+          });
+
+          // Manually advance the ghost
+          const copilotApi = editor.getApi({ key: 'copilot' } as any) as any;
+          copilotApi?.copilot?.setBlockSuggestion({ text: remaining });
         }
       }
     };
-    el.addEventListener('keydown', handler, true); // capture phase
+    el.addEventListener('keydown', handler, true);
     return () => el.removeEventListener('keydown', handler, true);
   }, [editor]);
 
