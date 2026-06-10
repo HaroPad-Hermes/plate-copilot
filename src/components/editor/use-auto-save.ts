@@ -1,7 +1,7 @@
 'use client';
 
-import type { PlateEditor } from 'platejs/react';
 import { serializeMd } from '@platejs/markdown';
+import type { PlateEditor } from 'platejs/react';
 import * as React from 'react';
 
 import { getFileHandle } from '@/components/editor/file-handles';

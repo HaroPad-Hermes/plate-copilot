@@ -45,7 +45,7 @@ export const CopilotKit = [
         const { selection } = editor;
 
         // Get text up to cursor position (or full block if no selection)
-        let promptText = '';
+        let currentText = '';
         if (selection && PathApi.isAncestor(blockPath, selection.anchor.path)) {
           for (const [child, childPath] of NodeApi.children(
             editor,
@@ -53,26 +53,28 @@ export const CopilotKit = [
           )) {
             if (!TextApi.isText(child)) continue;
             if (PathApi.equals(childPath, selection.anchor.path)) {
-              promptText += (child.text as string).slice(
+              currentText += (child.text as string).slice(
                 0,
                 selection.anchor.offset
               );
               break;
             }
-            promptText += child.text as string;
+            currentText += child.text as string;
           }
         } else {
-          promptText = NodeApi.string(block);
+          currentText = NodeApi.string(block);
         }
 
+        let promptText = currentText;
+
         // Bake trailing space into prompt based on cursor state
-        const lastChar = promptText.slice(-1);
+        const lastChar = currentText.slice(-1);
         if (lastChar === ' ') {
           // Already spaced — keep as-is
         } else if (/[.,:;!?]/.test(lastChar)) {
           promptText += ' '; // Add space after punctuation
         } else if (/[a-zA-Z]/.test(lastChar)) {
-          const lastWord = promptText.split(/\s/).pop() || '';
+          const lastWord = currentText.split(/\s/).pop() || '';
           if (lastWord.length >= 4) {
             promptText += ' '; // Likely complete word → trailing space
           }

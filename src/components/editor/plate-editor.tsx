@@ -141,14 +141,10 @@ export function PlateEditor() {
                     0,
                     editor.selection.anchor.offset
                   );
-                  const lastWord =
-                    textBefore.split(/\s/).pop() || '';
+                  const lastWord = textBefore.split(/\s/).pop() || '';
                   const lastWordChar = lastWord.slice(-1);
                   // Same heuristic as getPrompt
-                  if (
-                    /[.,:;!?]/.test(lastWordChar) ||
-                    lastWord.length >= 4
-                  ) {
+                  if (/[.,:;!?]/.test(lastWordChar) || lastWord.length >= 4) {
                     prefix = ' ';
                   }
                   // else: short incomplete word → no space
@@ -162,8 +158,17 @@ export function PlateEditor() {
           e.stopImmediatePropagation();
 
           const spaceIdx = text.indexOf(' ');
-          const word =
-            spaceIdx === -1 ? text : text.slice(0, spaceIdx);
+          const word = spaceIdx === -1 ? text : text.slice(0, spaceIdx);
+
+          // Pre-shift ghost to account for prefix space before insertion
+          // This keeps the ghost aligned with what we're about to insert
+          if (prefix) {
+            const copilotApi = editor.getApi({ key: 'copilot' } as any) as any;
+            copilotApi?.copilot?.setBlockSuggestion({
+              text: ' ' + suggestionText,
+            });
+          }
+
           editor.tf.insertText(prefix + word + ' ');
         }
       }
