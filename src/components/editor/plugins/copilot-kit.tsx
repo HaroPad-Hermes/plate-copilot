@@ -67,12 +67,10 @@ export const CopilotKit = [
 
         let promptText = currentText;
 
-        // Keep existing trailing space or add after punctuation; otherwise send raw
+        // Only preserve existing trailing space; otherwise send raw
         const lastChar = currentText.slice(-1);
         if (lastChar === ' ') {
           // Already spaced — keep as-is
-        } else if (/[.,:;!?]/.test(lastChar)) {
-          promptText += ' '; // Add space after punctuation → route sees trailing space
         }
         // else: no trailing space → raw text (route handles two-prompt)
 
